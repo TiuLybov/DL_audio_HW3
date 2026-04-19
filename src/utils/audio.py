@@ -1,13 +1,56 @@
 """
 Утилиты для обработки аудио:
-- Извлечение mel-спектрограмм
+- Извлечение mel-спектрограмм (совместимо с конфигурацией из задания)
 - Извлечение pitch (F0) через pyin
 - Извлечение energy (RMS)
 """
 
 import numpy as np
 import torch
+import torch.nn as nn
+import torchaudio
 import librosa
+
+
+class MelSpectrogram(nn.Module):
+    """
+    Mel-spectrogram extractor, совместимый с конфигурацией из задания.
+    Использует torchaudio + librosa Slaney mel basis (как в примере преподавателя).
+    """
+
+    def __init__(self, sr=22050, n_fft=1024, hop_length=256, win_length=1024,
+                 f_min=0, f_max=11025, n_mels=80, power=2.0):
+        super().__init__()
+        self.hop_length = hop_length
+
+        self.mel_spectrogram = torchaudio.transforms.MelSpectrogram(
+            sample_rate=sr,
+            win_length=win_length,
+            hop_length=hop_length,
+            n_fft=n_fft,
+            f_min=f_min,
+            f_max=f_max,
+            n_mels=n_mels,
+        )
+        self.mel_spectrogram.spectrogram.power = power
+
+        # Slaney mel basis (как librosa), для совместимости с WaveGlow
+        mel_basis = librosa.filters.mel(
+            sr=sr, n_fft=n_fft, n_mels=n_mels, fmin=f_min, fmax=f_max
+        ).T
+        self.mel_spectrogram.mel_scale.fb.copy_(torch.tensor(mel_basis))
+
+    def forward(self, audio: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            audio: (B, T) or (T,)
+        Returns:
+            mel: (B, n_mels, T') — log-mel spectrogram
+        """
+        if audio.dim() == 1:
+            audio = audio.unsqueeze(0)
+        mel = self.mel_spectrogram(audio).clamp_(min=1e-5).log_()
+        return mel
 
 
 def get_mel_spectrogram(
@@ -18,7 +61,7 @@ def get_mel_spectrogram(
     win_length: int = 1024,
     n_mels: int = 80,
     fmin: float = 0.0,
-    fmax: float = 8000.0,
+    fmax: float = 11025.0,
 ) -> np.ndarray:
     """
     Извлечение mel-спектрограммы из аудио.
