@@ -6,11 +6,18 @@ MFA даёт точные временные границы каждой фон�
 
 Бонус: +15 баллов за использование MFA вместо Tacotron2 alignments.
 
-Установка MFA:
-    conda install -c conda-forge montreal-forced-aligner
+Установка MFA в Google Colab:
 
-Или через pip (менее стабильно):
-    pip install montreal-forced-aligner
+    # Ячейка 1 (после этого runtime перезагрузится автоматически):
+    !pip install condacolab
+    import condacolab
+    condacolab.install()
+
+    # Ячейка 2 (после перезагрузки):
+    !conda install -c conda-forge montreal-forced-aligner -y
+
+Установка локально (если есть conda/mamba):
+    conda install -c conda-forge montreal-forced-aligner
 
 Шаги:
 1. Подготовка данных в формате MFA (wav + txt в одной папке)
@@ -248,7 +255,8 @@ def convert_all_textgrids(
         for line in f:
             parts = line.strip().split("|")
             if len(parts) >= 2:
-                entries[parts[0].strip()] = parts[1].strip()
+                basename = parts[0].strip().replace(".wav", "")
+                entries[basename] = parts[1].strip()
 
     converted = 0
     skipped = 0
@@ -259,6 +267,7 @@ def convert_all_textgrids(
     for tg_path in tqdm(tg_files, desc="Converting TextGrids"):
         basename = tg_path.stem
 
+        # Пробуем найти в entries (basename может быть с/без _RUSLAN и т.д.)
         if basename not in entries:
             skipped += 1
             continue
@@ -296,13 +305,19 @@ def main():
 
     # Auto-detect metadata
     if args.metadata is None:
-        for name in ["metadata.csv", "metadata.txt", "transcripts.txt"]:
+        for name in ["metadata_RUSLAN_22200.csv", "metadata.csv", "metadata.txt", "transcripts.txt"]:
             path = os.path.join(args.data_dir, name)
             if os.path.exists(path):
                 args.metadata = path
                 break
+        # Fallback: любой csv с metadata в имени
         if args.metadata is None:
-            print("ERROR: No metadata file found!")
+            for f in Path(args.data_dir).glob("*metadata*.csv"):
+                args.metadata = str(f)
+                break
+        if args.metadata is None:
+            print(f"ERROR: No metadata file found in {args.data_dir}")
+            print(f"Files: {os.listdir(args.data_dir)}")
             sys.exit(1)
 
     print(f"Metadata: {args.metadata}")
