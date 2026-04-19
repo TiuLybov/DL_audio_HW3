@@ -84,7 +84,11 @@ class TrainConfig:
 
 @dataclass
 class MelConfig:
-    """Mel-spectrogram extraction config."""
+    """
+    Mel-spectrogram extraction config.
+    Параметры совпадают с конфигурацией из задания (HOMEWORK_VOCODERS.md),
+    чтобы mel-спектрограммы были совместимы между акустической моделью и вокодером.
+    """
 
     sample_rate: int = 22050
     n_fft: int = 1024
@@ -92,4 +96,6 @@ class MelConfig:
     win_length: int = 1024
     n_mel_channels: int = 80
     mel_fmin: float = 0.0
-    mel_fmax: float = 8000.0
+    mel_fmax: float = 11025.0  # из задания, а не 8000
+    power: float = 2.0
+    pad_value: float = -11.5129251  # silence value из задания
